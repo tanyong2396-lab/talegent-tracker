@@ -76,11 +76,16 @@ function copyLink() {
     alert('✅ 已复制！粘贴到 Gmail 插入图片 → 网址');
 }
 
+
 function formatTime(utcTime) {
     if (!utcTime) return '-';
     const date = new Date(utcTime);
-    const beijing = new Date(date.getTime() + 8 * 3600000);
-    return beijing.toLocaleString('zh-CN', { hour12: false });
+    // 直接用 toLocaleString 指定时区，不再手动加 8 小时
+    return date.toLocaleString('zh-CN', { 
+        hour12: false,
+        timeZone: 'Asia/Shanghai'  // 指定时区为北京时间
+    });
 }
+
 
 window.onload = loadDashboard;
