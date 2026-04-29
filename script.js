@@ -6,16 +6,35 @@ function showTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.nav button').forEach(el => el.classList.remove('active'));
     document.getElementById(tabName).classList.add('active');
-    event.target.classList.add('active');
     if (tabName === 'dashboard') loadDashboard();
     if (tabName === 'tracking') loadAllRecords();
 }
 
+async function fetchWithTimeout(url, options, timeout = 5000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(timeoutId);
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+    }
+}
+
 async function loadDashboard() {
     try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/email_tracking?select=*`, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
+        const response = await fetchWithTimeout(
+            `${SUPABASE_URL}/rest/v1/email_tracking?select=*`,
+            {
+                headers: { 
+                    'apikey': SUPABASE_KEY, 
+                    'Authorization': `Bearer ${SUPABASE_KEY}` 
+                }
+            },
+            5000
+        );
         const data = await response.json();
         const totalSent = data.length;
         const emails = [...new Set(data.map(item => item.email))];
@@ -42,21 +61,30 @@ async function loadDashboard() {
             return `<tr><td>${r.email}</td><td>${r.count}</td><td>${firstTime}</td><td>${lastTime}</td><td>${location}</td></tr>`;
         }).join('');
     } catch(e) {
-        document.getElementById('recentBody').innerHTML = '<tr><td colspan="5">⚠️ 加载失败</td></tr>';
+        document.getElementById('recentBody').innerHTML = '<tr><td colspan="5">⚠️ 加载失败，请检查网络或刷新重试</td></tr>';
+        console.error('Dashboard error:', e);
     }
 }
 
 async function loadAllRecords() {
     try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/email_tracking?select=*&order=opened_at.desc`, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
+        const response = await fetchWithTimeout(
+            `${SUPABASE_URL}/rest/v1/email_tracking?select=*&order=opened_at.desc`,
+            {
+                headers: { 
+                    'apikey': SUPABASE_KEY, 
+                    'Authorization': `Bearer ${SUPABASE_KEY}` 
+                }
+            },
+            5000
+        );
         const data = await response.json();
         document.getElementById('allBody').innerHTML = data.map(item => 
             `<tr><td>${item.email}</td><td>${item.campaign || '-'}</td><td>${formatTime(item.opened_at)}</td><td>${item.country || '-'}</td><td>${item.city || '-'}</td></tr>`
         ).join('');
     } catch(e) {
-        document.getElementById('allBody').innerHTML = '<tr><td colspan="5">⚠️ 加载失败</td></tr>';
+        document.getElementById('allBody').innerHTML = '<tr><td colspan="5">⚠️ 加载失败，请检查网络或刷新重试</td></tr>';
+        console.error('Tracking error:', e);
     }
 }
 
@@ -76,16 +104,13 @@ function copyLink() {
     alert('✅ 已复制！粘贴到 Gmail 插入图片 → 网址');
 }
 
-
 function formatTime(utcTime) {
     if (!utcTime) return '-';
     const date = new Date(utcTime);
-    // 直接用 toLocaleString 指定时区，不再手动加 8 小时
     return date.toLocaleString('zh-CN', { 
         hour12: false,
-        timeZone: 'Asia/Shanghai'  // 指定时区为北京时间
+        timeZone: 'Asia/Shanghai'
     });
 }
-
 
 window.onload = loadDashboard;
